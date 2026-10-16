@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>员工信息管理系统</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="/lib/element-plus.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.6.0/dist/echarts.min.js"></script>
+</head>
+<body>
+<div id="app">
+    <!-- 左侧导航栏 -->
+    <div class="sidebar">
+        <div class="sidebar-logo">
+            <span class="logo-icon">&#9783;</span>
+            <span class="logo-text">员工管理</span>
+        </div>
+        <div class="sidebar-menu">
+            <div class="menu-item active">
+                <span class="menu-icon">&#9638;</span>
+                <span>数据概览</span>
+            </div>
+        </div>
+        <div class="sidebar-footer">
+            <div class="user-badge">
+                <span class="user-avatar">{{ currentUser ? currentUser.charAt(0).toUpperCase() : 'U' }}</span>
+                <span class="user-name">{{ currentUser }}</span>
+            </div>
+            <el-button text style="color:#ff4d4f;font-size:13px;" @click="handleLogout">退出登录</el-button>
+        </div>
+    </div>
+
+    <!-- 右侧内容区 -->
+    <div class="main-content">
+        <!-- 顶部栏 -->
+        <div class="top-bar">
+            <h1>数据概览</h1>
+            <div class="top-bar-actions">
+                <el-button style="border-radius:4px;border-color:#1890ff;color:#1890ff;" @click="handleExport">&#128229; 导出Excel</el-button>
+                <el-button type="primary" @click="openAddDialog" style="border-radius:4px;">&#10010; 新增员工</el-button>
+                <el-button type="danger" :disabled="selectedIds.length === 0" @click="handleBatchDelete" style="border-radius:4px;">&#10006; 批量删除</el-button>
+            </div>
+        </div>
+
+        <!-- 统计卡片 -->
+        <div class="stats-cards">
+            <div class="stat-card">
+                <div class="stat-icon total">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-7 8-7s8 3 8 7"/></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-num">{{ stats.totalEmployees }}</span>
+                    <span class="stat-label">员工总数</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon dept">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-num">{{ stats.totalDepartments }}</span>
+                    <span class="stat-label">部门数量</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon new">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-num">{{ stats.newThisMonth }}</span>
+                    <span class="stat-label">本月新增</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon out">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                </div>
+                <div class="stat-info">
+                    <span class="stat-num">{{ (stats.statusDistribution && stats.statusDistribution['离职']) || 0 }}</span>
+                    <span class="stat-label">离职人数</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表区 -->
+        <div class="charts-row">
+            <div class="content-card chart-card">
+                <h3 class="card-title">部门人数分布</h3>
+                <div id="chart-dept" style="width:100%;height:280px;"></div>
+            </div>
+            <div class="content-card chart-card">
+                <h3 class="card-title">男女比例</h3>
+                <div id="chart-gender" style="width:100%;height:280px;"></div>
+            </div>
+        </div>
+
+        <!-- 员工列表卡片 -->
+        <div class="content-card">
+            <h3 class="card-title" style="margin-bottom:16px;">员工列表</h3>
+
+            <!-- 搜索筛选区 -->
+            <el-form :model="queryForm" label-width="70px" label-position="right" size="default" style="margin-bottom:16px;padding:16px;background:#fafafa;border-radius:6px;">
+                <el-row :gutter="12">
+                    <el-col :span="6">
+                        <el-form-item label="姓名">
+                            <el-input v-model="queryForm.name" placeholder="请输入" clearable />
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="6">
+                        <el-form-item label="性别">
+                            <el-select v-model="queryForm.gender" placeholder="全部" clearable style="width:100%">
+                                <el-option label="男" value="男"></el-option>
+                                <el-option label="女" value="女"></el-option>
+                            </el-select>
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="6">
+                        <el-form-item label="岗位">
+                            <el-input v-model="queryForm.deptName" placeholder="请输入" clearable />
+                        </el-form-item>
+                    </el-col>
+                    <el-col :span="6">
+                        <div style="display:flex;gap:8px;justify-content:flex-end;padding-top:4px;">
+                            <el-button @click="resetQuery">重置</el-button>
+                            <el-button type="primary" @click="handleQuery">查询</el-button>
+                        </div>
+                    </el-col>
+                </el-row>
+            </el-form>
+
+            <div class="table-header-row">
+                <span style="font-size:13px;color:#8c8c8c;">共 <strong style="color:#262626;">{{ total }}</strong> 条记录</span>
+            </div>
+
+            <!-- 空状态 -->
+            <div v-if="!tableLoading && staffList.length === 0" class="empty-state">
+                <div class="empty-icon">&#128196;</div>
+                <p class="empty-text">暂无员工数据</p>
+                <el-button type="primary" @click="openAddDialog" style="border-radius:4px;margin-top:12px;">立即新增</el-button>
+            </div>
+
+            <!-- 表格 -->
+            <el-table v-else :data="staffList" border stripe @selection-change="handleSelectionChange" v-loading="tableLoading" style="width:100%;" :header-cell-style="{background:'#fafafa',color:'#262626',fontWeight:'bold',height:'48px'}" :row-style="{height:'48px'}">
+                <el-table-column type="selection" :width="45"></el-table-column>
+                <el-table-column prop="id" label="工号" :width="80"></el-table-column>
+                <el-table-column prop="name" label="姓名" :width="100"></el-table-column>
+                <el-table-column prop="gender" label="性别" :width="60"></el-table-column>
+                <el-table-column prop="age" label="年龄" :width="60"></el-table-column>
+                <el-table-column prop="deptName" label="岗位" :width="140"></el-table-column>
+                <el-table-column prop="phone" label="手机号" :width="130"></el-table-column>
+                <el-table-column prop="education" label="学历" :width="100"></el-table-column>
+                <el-table-column prop="workStatus" label="在职状态" :width="90"></el-table-column>
+                <el-table-column prop="nativePlace" label="籍贯" :width="120"></el-table-column>
+                <el-table-column prop="basicSalary" label="基本工资" :width="110"></el-table-column>
+                <el-table-column label="操作" :width="150" fixed="right">
+                    <template #default="{ row }">
+                        <el-button text type="primary" @click="openEditDialog(row)">编辑</el-button>
+                        <el-button text type="danger" @click="handleDelete(row)">删除</el-button>
+                    </template>
+                </el-table-column>
+            </el-table>
+
+            <!-- 分页器 -->
+            <div class="pagination-wrapper" v-if="total > 0">
+                <el-pagination
+                    v-model:current-page="queryForm.page"
+                    v-model:page-size="queryForm.size"
+                    :page-sizes="[10, 20, 50, 100]"
+                    :total="total"
+                    layout="total, sizes, prev, pager, next, jumper"
+                    background
+                    @size-change="handleQuery"
+                    @current-change="handleQuery"
+                ></el-pagination>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增/编辑弹窗 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="650px" :close-on-click-modal="false" destroy-on-close>
+        <el-form ref="staffFormRef" :model="staffForm" :rules="staffRules" label-width="90px" label-position="right">
+            <el-row :gutter="16">
+                <el-col :span="12">
+                    <el-form-item label="姓名" prop="name">
+                        <el-input v-model="staffForm.name" placeholder="请输入姓名"></el-input>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="性别" prop="gender">
+                        <el-select v-model="staffForm.gender" style="width:100%" placeholder="请选择">
+                            <el-option label="男" value="男"></el-option>
+                            <el-option label="女" value="女"></el-option>
+                        </el-select>
+                    </el-form-item>
+                </el-col>
+            </el-row>
+            <el-row :gutter="16">
+                <el-col :span="12">
+                    <el-form-item label="年龄">
+                        <el-input-number v-model="staffForm.age" :min="18" :max="65" style="width:100%" placeholder="请输入年龄"></el-input-number>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="岗位" prop="deptName">
+                        <el-input v-model="staffForm.deptName" placeholder="请输入岗位"></el-input>
+                    </el-form-item>
+                </el-col>
+            </el-row>
+            <el-row :gutter="16">
+                <el-col :span="12">
+                    <el-form-item label="手机号" prop="phone">
+                        <el-input v-model="staffForm.phone" placeholder="请输入手机号"></el-input>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="学历" prop="education">
+                        <el-input v-model="staffForm.education" placeholder="请输入学历"></el-input>
+                    </el-form-item>
+                </el-col>
+            </el-row>
+            <el-row :gutter="16">
+                <el-col :span="12">
+                    <el-form-item label="身份证号" prop="idCare">
+                        <el-input v-model="staffForm.idCare" placeholder="请输入身份证号"></el-input>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="在职状态">
+                        <el-select v-model="staffForm.workStatus" style="width:100%" placeholder="请选择">
+                            <el-option label="在职" value="在职"></el-option>
+                            <el-option label="离职" value="离职"></el-option>
+                            <el-option label="退休" value="退休"></el-option>
+                            <el-option label="外包" value="外包"></el-option>
+                            <el-option label="实习" value="实习"></el-option>
+                        </el-select>
+                    </el-form-item>
+                </el-col>
+            </el-row>
+            <el-row :gutter="16">
+                <el-col :span="12">
+                    <el-form-item label="籍贯">
+                        <el-input v-model="staffForm.nativePlace" placeholder="请输入籍贯"></el-input>
+                    </el-form-item>
+                </el-col>
+                <el-col :span="12">
+                    <el-form-item label="基本工资">
+                        <el-input-number v-model="staffForm.basicSalary" :min="0" :precision="2" style="width:100%" placeholder="请输入基本工资"></el-input-number>
+                    </el-form-item>
+                </el-col>
+            </el-row>
+            <el-form-item label="居住地址">
+                <el-input v-model="staffForm.address" placeholder="请输入居住地址"></el-input>
+            </el-form-item>
+            <el-form-item label="银行卡号">
+                <el-input v-model="staffForm.bankCard" placeholder="请输入银行卡号"></el-input>
+            </el-form-item>
+        </el-form>
+        <template #footer>
+            <div class="dialog-footer">
+                <el-button @click="dialogVisible=false">取消</el-button>
+                <el-button type="primary" :loading="submitLoading" @click="handleSubmit" style="border-radius:4px;">确定</el-button>
+            </div>
+        </template>
+    </el-dialog>
+</div>
+
+<script src="/lib/vue.global.prod.js"></script>
+<script src="/lib/element-plus.min.js"></script>
+<script src="/lib/axios.min.js"></script>
+<script src="/js/main.js"></script>
+</body>
+</html>

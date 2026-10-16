@@ -1,0 +1,42 @@
+# 服务端口配置
+server:
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  port: 8081   # Tomcat 监听端口，浏览器访问 http://localhost:8081
+
+# Spring 框架全局配置
+spring:
+  # ----- MySQL 数据源配置 -----
+  datasource:
+    #useUnicode=true：使用 Unicode 编码（支持中文）
+    #characterEncoding=utf-8：字符集设为 UTF-8
+    #serverTimezone=Asia/Shanghai：服务器时区设为东八区（上海）
+    #useSSL=false：关闭 SSL 连接（开发环境无需加密）
+    url: jdbc:mysql://localhost:3306/staff?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false
+    username: root    #数据库登录用户名
+    password: "请改成你本地的MySQL密码"    #首次运行前请修改为自己的数据库密码
+    driver-class-name: com.mysql.cj.jdbc.Driver    #MySQL 8.x JDBC 驱动类
+
+  # ----- Redis 配置 -----
+  data:
+    redis:
+      host: localhost    # Redis 服务器地址
+      port: 6379         # Redis 默认端口
+      database: 0        # 使用第 0 个数据库
+      timeout: 10000     # 连接超时时间（毫秒）
+
+  # ----- Spring Session 配置 -----
+  session:
+    store-type: redis    # 将用户 session 存储在 Redis 中（重启不丢失）
+    timeout: 1800      # session 过期时间：86400 秒 = 24 小时
+
+# MyBatis Plus 配置
+mybatis-plus:
+  mapper-locations: classpath:mapper/*.xml      # XML 映射文件路径（当前未使用）
+  type-aliases-package: com.dsf.entity      # 实体类所在包，SQL 中可直接用类名
+  configuration:
+    map-underscore-to-camel-case: true  # 自动转换下划线字段名到驼峰属性名（如 student_no → studentNo）
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl  # 控制台打印 SQL 日志（开发调试用）
